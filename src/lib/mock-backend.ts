@@ -1,13 +1,16 @@
 import type {
   AmbulanceUnit,
   BedHold,
+  BedSlot,
   Hospital,
   Incident,
   Patient,
+  PatientVitals,
   Prediction,
   ResourceType,
   Severity,
 } from "./types";
+import { sound } from "./sound";
 
 /**
  * In-memory mock backend that mirrors the FastAPI contract 1:1.
@@ -27,6 +30,47 @@ const now = () => new Date();
 const iso = (d: Date) => d.toISOString();
 const minutes = (n: number) => n * 60_000;
 
+function generateBedMatrix(hospitalId: string, icuTotal: number, wardTotal: number, otTotal: number): BedSlot[] {
+  const slots: BedSlot[] = [];
+  
+  // ICU slots (e.g. 101 to 100+icuTotal)
+  for (let i = 1; i <= Math.min(icuTotal, 16); i++) {
+    slots.push({
+      id: `${hospitalId}-icu-${i}`,
+      room_number: `ICU-Pod ${String.fromCharCode(64 + Math.ceil(i / 4))}`,
+      bed_code: `ICU-${String(i).padStart(2, "0")}`,
+      unit_type: "icu",
+      status: i <= 2 ? "held" : i <= 6 ? "occupied" : i === 7 ? "sanitizing" : "available",
+      held_expires_at: i <= 2 ? iso(new Date(Date.now() + minutes(12))) : null,
+    });
+  }
+
+  // OT suites
+  for (let i = 1; i <= Math.min(otTotal, 8); i++) {
+    slots.push({
+      id: `${hospitalId}-ot-${i}`,
+      room_number: `Trauma OR Suite ${i}`,
+      bed_code: `OR-${i}`,
+      unit_type: "ot",
+      status: i === 1 ? "held" : i === 2 ? "occupied" : "available",
+      held_expires_at: i === 1 ? iso(new Date(Date.now() + minutes(18))) : null,
+    });
+  }
+
+  // General Ward beds
+  for (let i = 1; i <= 20; i++) {
+    slots.push({
+      id: `${hospitalId}-ward-${i}`,
+      room_number: `Ward 3-${Math.ceil(i / 4)}`,
+      bed_code: `W3-${String(i).padStart(2, "0")}`,
+      unit_type: "ward",
+      status: i <= 4 ? "occupied" : i === 5 ? "sanitizing" : "available",
+    });
+  }
+
+  return slots;
+}
+
 function makeHospital(
   id: string,
   name: string,
@@ -36,6 +80,8 @@ function makeHospital(
   beds: [number, number],
   icu: [number, number],
   ot: [number, number],
+  traumaLevel: 1 | 2 | 3,
+  capabilities: { burn: boolean; peds: boolean; helipad: boolean; ct: boolean; phone: string; chief: string },
 ): Hospital {
   return {
     id,
@@ -49,18 +95,67 @@ function makeHospital(
     icu_available: icu[1],
     ot_total: ot[0],
     ot_available: ot[1],
-    blood_bank_status: { "O+": 24, "O-": 6, "A+": 18, "B+": 12, "AB+": 4 },
+    blood_bank_status: { "O-": 8, "O+": 24, "A+": 18, "A-": 6, "B+": 14, "B-": 4, "AB+": 7, "AB-": 3 },
     network_id: "net-central",
+    trauma_level: traumaLevel,
+    burn_unit: capabilities.burn,
+    pediatric_er: capabilities.peds,
+    helipad: capabilities.helipad,
+    ct_scan: capabilities.ct,
+    decon_ready: true,
+    phone_emergency: capabilities.phone,
+    chief_of_emergency: capabilities.chief,
+    bed_matrix: generateBedMatrix(id, icu[0], beds[0], ot[0]),
+    staff_on_duty: {
+      traumaSurgeons: traumaLevel === 1 ? 4 : 2,
+      erNurses: traumaLevel === 1 ? 16 : 8,
+      anesthesiologists: traumaLevel === 1 ? 5 : 2,
+    },
   };
 }
 
-const db: Snapshot = {
+const initialDb: Snapshot = {
   hospitals: [
-    makeHospital("h1", "City General Hospital", "12 Marine Drive, Sector 4", 19.076, 72.877, [420, 63], [40, 7], [12, 3]),
-    makeHospital("h2", "St. Anne Medical Center", "88 Ridge Road, Northside", 19.104, 72.842, [260, 21], [22, 2], [8, 1]),
-    makeHospital("h3", "Riverside Trauma Institute", "5 Riverside Way, East Bank", 19.041, 72.918, [180, 48], [30, 11], [10, 5]),
-    makeHospital("h4", "Meridian District Hospital", "301 Meridian Ave, Southgate", 18.998, 72.861, [340, 95], [18, 4], [6, 2]),
-    makeHospital("h5", "Harbour Point Clinic", "7 Dockyard Lane, Harbour", 19.062, 72.951, [90, 12], [6, 0], [3, 0]),
+    makeHospital("h1", "City General Hospital", "12 Marine Drive, Sector 4", 19.076, 72.877, [420, 63], [40, 7], [12, 3], 1, {
+      burn: true,
+      peds: true,
+      helipad: true,
+      ct: true,
+      phone: "+1 (555) 019-2831",
+      chief: "Dr. Alistair Vance, MD, FACS",
+    }),
+    makeHospital("h2", "St. Anne Medical Center", "88 Ridge Road, Northside", 19.104, 72.842, [260, 21], [22, 2], [8, 1], 2, {
+      burn: false,
+      peds: true,
+      helipad: false,
+      ct: true,
+      phone: "+1 (555) 014-9920",
+      chief: "Dr. Elena Rostova, MD",
+    }),
+    makeHospital("h3", "Riverside Trauma Institute", "5 Riverside Way, East Bank", 19.041, 72.918, [180, 48], [30, 11], [10, 5], 1, {
+      burn: true,
+      peds: false,
+      helipad: true,
+      ct: true,
+      phone: "+1 (555) 018-7711",
+      chief: "Dr. Marcus Thorne, MD, FCCM",
+    }),
+    makeHospital("h4", "Meridian District Hospital", "301 Meridian Ave, Southgate", 18.998, 72.861, [340, 95], [18, 4], [6, 2], 2, {
+      burn: false,
+      peds: false,
+      helipad: false,
+      ct: true,
+      phone: "+1 (555) 012-3401",
+      chief: "Dr. Priya Patel, MD",
+    }),
+    makeHospital("h5", "Harbour Point Clinic", "7 Dockyard Lane, Harbour", 19.062, 72.951, [90, 12], [6, 0], [3, 0], 3, {
+      burn: false,
+      peds: false,
+      helipad: false,
+      ct: false,
+      phone: "+1 (555) 017-6655",
+      chief: "Dr. Kevin Zhang, MD",
+    }),
   ],
   incidents: [
     {
@@ -71,17 +166,197 @@ const db: Snapshot = {
       network_id: "net-central",
       severity_estimate: 4,
       label: "Multi-vehicle collision — Coastal Expressway KM 14",
+      casualties_estimated: 14,
+      evacuation_zone: "Sector 4 Coastal Highway Corridor",
     },
   ],
-  patients: [],
-  holds: [],
+  patients: [
+    {
+      id: "pat-seed-1",
+      tracking_id: "UH-9B4X2M",
+      incident_id: "inc-1",
+      name: "Marcus Holloway (Unverified)",
+      age_range: "31-45",
+      gender: "male",
+      identifying_marks: "Navy blue hoodie, metallic wrist watch, scar over right brow",
+      suspected_condition: "Blunt thoracic trauma with suspected pneumothorax",
+      severity: "red",
+      status: "en_route",
+      assigned_hospital_id: "h1",
+      pickup_location: "18.9982, 72.8611 · Coastal Expressway KM 14",
+      pickup_area: "Coastal Expressway",
+      created_at: iso(new Date(Date.now() - minutes(14))),
+      vitals: {
+        heartRate: 118,
+        systolicBP: 95,
+        diastolicBP: 62,
+        spO2: 91,
+        respRate: 28,
+        gcs: 13,
+        tempCelsius: 36.6,
+      },
+      injury_tags: ["Thorax / Chest", "Head / Brow"],
+      field_notes: "Chest wall asymmetry noted. 2L O2 delivered via NRB mask. Golden hour lock engaged.",
+      paramedic_unit: "AMB-114",
+    },
+    {
+      id: "pat-seed-2",
+      tracking_id: "UH-7K8L2P",
+      incident_id: "inc-1",
+      name: "Sarah Chen",
+      age_range: "18-30",
+      gender: "female",
+      identifying_marks: "Green jacket, red backpack nearby",
+      suspected_condition: "Left femur fracture, stable hemodynamics",
+      severity: "yellow",
+      status: "en_route",
+      assigned_hospital_id: "h3",
+      pickup_location: "18.9982, 72.8611 · Coastal Expressway KM 14",
+      pickup_area: "Coastal Expressway",
+      created_at: iso(new Date(Date.now() - minutes(10))),
+      vitals: {
+        heartRate: 88,
+        systolicBP: 124,
+        diastolicBP: 78,
+        spO2: 98,
+        respRate: 18,
+        gcs: 15,
+        tempCelsius: 36.9,
+      },
+      injury_tags: ["Left Lower Extremity / Femur"],
+      field_notes: "Traction splint applied in field. Distal pulses intact.",
+      paramedic_unit: "AMB-207",
+    },
+    {
+      id: "pat-seed-3",
+      tracking_id: "UH-4W9D1Z",
+      incident_id: "inc-1",
+      name: "David K.",
+      age_range: "46-60",
+      gender: "male",
+      identifying_marks: "Grey overcoat",
+      suspected_condition: "Superficial glass lacerations, contusions",
+      severity: "green",
+      status: "admitted",
+      assigned_hospital_id: "h4",
+      pickup_location: "18.9982, 72.8611 · Coastal Expressway KM 14",
+      pickup_area: "Coastal Expressway",
+      created_at: iso(new Date(Date.now() - minutes(28))),
+      vitals: {
+        heartRate: 76,
+        systolicBP: 120,
+        diastolicBP: 80,
+        spO2: 99,
+        respRate: 16,
+        gcs: 15,
+        tempCelsius: 37.0,
+      },
+      injury_tags: ["Right Arm / Forearm"],
+      field_notes: "Lacerations irrigated and dressed. Ambulatory at scene.",
+      paramedic_unit: "AMB-311",
+    },
+  ],
+  holds: [
+    {
+      id: "hold-seed-1",
+      patient_id: "pat-seed-1",
+      hospital_id: "h1",
+      resource_type: "icu",
+      resource_label: "ICU Resuscitation Pod #04",
+      held_at: iso(new Date(Date.now() - minutes(14))),
+      expires_at: iso(new Date(Date.now() + minutes(16))),
+      status: "active",
+    },
+    {
+      id: "hold-seed-2",
+      patient_id: "pat-seed-2",
+      hospital_id: "h3",
+      resource_type: "ot",
+      resource_label: "Trauma OR Suite #2",
+      held_at: iso(new Date(Date.now() - minutes(10))),
+      expires_at: iso(new Date(Date.now() + minutes(22))),
+      status: "active",
+    },
+    {
+      id: "hold-seed-3",
+      patient_id: "pat-seed-3",
+      hospital_id: "h4",
+      resource_type: "bed",
+      resource_label: "General Ward Bed W3-08",
+      held_at: iso(new Date(Date.now() - minutes(28))),
+      expires_at: iso(new Date(Date.now() - minutes(5))),
+      status: "confirmed",
+    },
+  ],
   units: [
-    { id: "u1", unit_code: "AMB-114", current_location: "Coastal Expressway KM 14", status: "idle", assigned_patient_id: null, eta_minutes: 0 },
-    { id: "u2", unit_code: "AMB-207", current_location: "Sector 9 Depot", status: "idle", assigned_patient_id: null, eta_minutes: 0 },
-    { id: "u3", unit_code: "AMB-311", current_location: "Northside Junction", status: "idle", assigned_patient_id: null, eta_minutes: 0 },
+    {
+      id: "u1",
+      unit_code: "AMB-114",
+      current_location: "Coastal Expressway KM 14",
+      status: "onboard",
+      assigned_patient_id: "pat-seed-1",
+      eta_minutes: 7,
+      driver_name: "Capt. Ray Cooper",
+      paramedic_lead: "Lt. Sarah Lin, NREMT-P",
+      fuel_pct: 84,
+      speed_kmh: 78,
+      live_vitals: {
+        heartRate: 118,
+        systolicBP: 95,
+        diastolicBP: 62,
+        spO2: 91,
+        respRate: 28,
+        gcs: 13,
+        tempCelsius: 36.6,
+      },
+    },
+    {
+      id: "u2",
+      unit_code: "AMB-207",
+      current_location: "En route to Riverside Trauma",
+      status: "onboard",
+      assigned_patient_id: "pat-seed-2",
+      eta_minutes: 12,
+      driver_name: "Officer Jack Miller",
+      paramedic_lead: "Paramedic David Kim",
+      fuel_pct: 68,
+      speed_kmh: 82,
+      live_vitals: {
+        heartRate: 88,
+        systolicBP: 124,
+        diastolicBP: 78,
+        spO2: 98,
+        respRate: 18,
+        gcs: 15,
+        tempCelsius: 36.9,
+      },
+    },
+    {
+      id: "u3",
+      unit_code: "AMB-311",
+      current_location: "Meridian District Hospital ER Bay",
+      status: "arrived",
+      assigned_patient_id: "pat-seed-3",
+      eta_minutes: 0,
+      driver_name: "Paramedic Maya Jensen",
+      paramedic_lead: "Paramedic Chris Evans",
+      fuel_pct: 92,
+      speed_kmh: 0,
+      live_vitals: {
+        heartRate: 76,
+        systolicBP: 120,
+        diastolicBP: 80,
+        spO2: 99,
+        respRate: 16,
+        gcs: 15,
+        tempCelsius: 37.0,
+      },
+    },
   ],
   predictions: [],
 };
+
+const db: Snapshot = JSON.parse(JSON.stringify(initialDb));
 
 /* ---------------------------------- bus ---------------------------------- */
 
@@ -90,7 +365,8 @@ export type NetworkEvent =
   | { type: "assignment"; patient: Patient; hold: BedHold }
   | { type: "hold_expired"; hold: BedHold }
   | { type: "resources_updated"; hospital: Hospital }
-  | { type: "patient_updated"; patient: Patient };
+  | { type: "patient_updated"; patient: Patient }
+  | { type: "unit_updated"; unit: AmbulanceUnit };
 
 const listeners = new Set<(e: NetworkEvent) => void>();
 
@@ -99,7 +375,7 @@ export function subscribeNetwork(fn: (e: NetworkEvent) => void) {
   return () => listeners.delete(fn);
 }
 
-const STORAGE_KEY = "urhealth-demo-state";
+const STORAGE_KEY = "urhealth-demo-state-v2";
 
 /** Session persistence so a full page reload keeps the demo scenario intact. */
 export function persist() {
@@ -107,7 +383,7 @@ export function persist() {
   try {
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(db));
   } catch {
-    /* storage unavailable — demo continues in memory */
+    /* storage unavailable */
   }
 }
 
@@ -132,7 +408,7 @@ function publish(e: NetworkEvent) {
 
 const rid = (p: string) => `${p}-${Math.random().toString(36).slice(2, 8)}`;
 
-function makeTrackingId() {
+export function makeTrackingId() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let s = "";
   for (let i = 0; i < 6; i++) s += alphabet[Math.floor(Math.random() * alphabet.length)];
@@ -226,9 +502,12 @@ export const store = {
       status: "active",
       network_id: "net-central",
       severity_estimate: input.severity_estimate,
+      casualties_estimated: input.severity_estimate * 4,
+      evacuation_zone: "Metropolitan Incident Zone",
     };
     db.incidents.unshift(inc);
     refreshPredictions();
+    sound.playEmergency();
     publish({ type: "incident_declared", incident: inc });
     return inc;
   },
@@ -261,7 +540,7 @@ export const store = {
       patient_id: patient.id,
       hospital_id: best.h.id,
       resource_type: need,
-      resource_label: `${need === "icu" ? "ICU bed" : need === "ot" ? "OT slot" : "Ward bed"} #${Math.floor(Math.random() * 40) + 1}`,
+      resource_label: `${need === "icu" ? "ICU Bed Pod" : need === "ot" ? "Trauma OR Suite" : "General Ward Bed"} #${Math.floor(Math.random() * 20) + 1}`,
       held_at: iso(now()),
       expires_at: iso(new Date(Date.now() + minutes(best.eta + 10))),
       status: "active",
@@ -275,9 +554,13 @@ export const store = {
       unit.assigned_patient_id = patient.id;
       unit.status = "dispatched";
       unit.eta_minutes = best.eta;
+      if (patient.vitals) {
+        unit.live_vitals = { ...patient.vitals };
+      }
     }
 
     refreshPredictions();
+    sound.playSuccess();
     publish({ type: "assignment", patient: { ...patient }, hold: { ...hold } });
     publish({ type: "resources_updated", hospital: { ...best.h } });
     return { patient: { ...patient }, hold: { ...hold }, hospital: { ...best.h }, eta_minutes: best.eta };
@@ -294,7 +577,20 @@ export const store = {
     pickup_location: string;
     pickup_area: string;
     incident_id?: string | null;
+    vitals?: PatientVitals;
+    injury_tags?: string[];
+    field_notes?: string;
   }) {
+    const defaultVitals: PatientVitals = input.vitals ?? {
+      heartRate: input.severity === "red" ? 122 : input.severity === "yellow" ? 95 : 78,
+      systolicBP: input.severity === "red" ? 90 : input.severity === "yellow" ? 115 : 122,
+      diastolicBP: input.severity === "red" ? 58 : input.severity === "yellow" ? 72 : 80,
+      spO2: input.severity === "red" ? 89 : input.severity === "yellow" ? 96 : 99,
+      respRate: input.severity === "red" ? 30 : input.severity === "yellow" ? 20 : 16,
+      gcs: input.severity === "red" ? 11 : input.severity === "yellow" ? 14 : 15,
+      tempCelsius: 36.8,
+    };
+
     const patient: Patient = {
       id: rid("pat"),
       tracking_id: makeTrackingId(),
@@ -310,6 +606,10 @@ export const store = {
       pickup_location: input.pickup_location,
       pickup_area: input.pickup_area,
       created_at: iso(now()),
+      vitals: defaultVitals,
+      injury_tags: input.injury_tags ?? [],
+      field_notes: input.field_notes ?? "",
+      paramedic_unit: "AMB-114",
     };
     db.patients.unshift(patient);
     const assignment = store.assign(patient.id);
@@ -325,7 +625,13 @@ export const store = {
       patient.status = "admitted";
       publish({ type: "patient_updated", patient: { ...patient } });
     }
+    const unit = db.units.find((u) => u.assigned_patient_id === hold.patient_id);
+    if (unit) {
+      unit.status = "arrived";
+      publish({ type: "unit_updated", unit: { ...unit } });
+    }
     refreshPredictions();
+    sound.playSuccess();
     persist();
   },
 
@@ -340,6 +646,7 @@ export const store = {
       else h.available_beds += 1;
       publish({ type: "resources_updated", hospital: { ...h } });
     }
+    sound.playWarning();
     return store.assign(hold.patient_id, [hold.hospital_id]);
   },
 
@@ -352,7 +659,24 @@ export const store = {
       p.status = "en_route";
       publish({ type: "patient_updated", patient: { ...p } });
     }
+    sound.playSuccess();
     persist();
+  },
+
+  updateVitals(unitId: string, vitals: Partial<PatientVitals>) {
+    const u = db.units.find((x) => x.id === unitId);
+    if (!u) return;
+    if (u.live_vitals) {
+      Object.assign(u.live_vitals, vitals);
+    }
+    if (u.assigned_patient_id) {
+      const p = db.patients.find((pat) => pat.id === u.assigned_patient_id);
+      if (p && p.vitals) {
+        Object.assign(p.vitals, vitals);
+        publish({ type: "patient_updated", patient: { ...p } });
+      }
+    }
+    publish({ type: "unit_updated", unit: { ...u } });
   },
 
   updateResources(hospitalId: string, patch: Partial<Hospital>) {
@@ -360,7 +684,93 @@ export const store = {
     if (!h) return;
     Object.assign(h, patch);
     refreshPredictions();
+    sound.playClick();
     publish({ type: "resources_updated", hospital: { ...h } });
+  },
+
+  updateBloodBank(hospitalId: string, group: string, amount: number) {
+    const h = db.hospitals.find((x) => x.id === hospitalId);
+    if (!h || !h.blood_bank_status) return;
+    h.blood_bank_status[group] = Math.max(0, (h.blood_bank_status[group] ?? 0) + amount);
+    sound.playClick();
+    publish({ type: "resources_updated", hospital: { ...h } });
+  },
+
+  updateBedStatus(hospitalId: string, bedSlotId: string, newStatus: BedSlot["status"]) {
+    const h = db.hospitals.find((x) => x.id === hospitalId);
+    if (!h || !h.bed_matrix) return;
+    const bed = h.bed_matrix.find((b) => b.id === bedSlotId);
+    if (bed) {
+      bed.status = newStatus;
+      sound.playClick();
+      publish({ type: "resources_updated", hospital: { ...h } });
+    }
+  },
+
+  /** Simulates an active mass casualty surge for live testing */
+  simulateMciSurge(scenarioName: string = "Expressway Multi-Vehicle Pileup") {
+    store.declareIncident({
+      type: "MCI",
+      label: `${scenarioName} · Critical casualty influx`,
+      severity_estimate: 5,
+    });
+
+    // Generate 3 urgent casualties with realistic injuries
+    const casualties: { severity: Severity; name: string; age: string; gender: string; cond: string; marks: string; tags: string[] }[] = [
+      {
+        severity: "red",
+        name: "Unidentified Male (Driver)",
+        age: "31-45",
+        gender: "male",
+        cond: "Traumatic brain injury, flail chest",
+        marks: "Black leather jacket, silver signet ring",
+        tags: ["Head / Cranial", "Thorax / Chest"],
+      },
+      {
+        severity: "red",
+        name: "Elena G.",
+        age: "18-30",
+        gender: "female",
+        cond: "Pelvic crush injury, hypovolemic shock",
+        marks: "Yellow rain poncho, floral tattoo left wrist",
+        tags: ["Pelvis / Abdomen", "Left Upper Extremity"],
+      },
+      {
+        severity: "yellow",
+        name: "Robert M.",
+        age: "46-60",
+        gender: "male",
+        cond: "Compound bilateral lower leg fractures",
+        marks: "Denim overalls, work boots",
+        tags: ["Bilateral Lower Extremities"],
+      },
+    ];
+
+    casualties.forEach((c) => {
+      store.createPatient({
+        name: c.name,
+        age_range: c.age,
+        gender: c.gender,
+        suspected_condition: c.cond,
+        identifying_marks: c.marks,
+        severity: c.severity,
+        pickup_location: "Coastal Expressway KM 14",
+        pickup_area: "Coastal Expressway",
+        injury_tags: c.tags,
+      });
+    });
+
+    sound.playEmergency();
+    return true;
+  },
+
+  /** Reset all state to clean initial defaults */
+  resetDemoData() {
+    Object.assign(db, JSON.parse(JSON.stringify(initialDb)));
+    refreshPredictions();
+    sound.playSuccess();
+    publish({ type: "resources_updated", hospital: db.hospitals[0]! });
+    persist();
   },
 
   /** GET /api/patients/search — sanitized public projection only. */
@@ -394,6 +804,7 @@ let started = false;
 export function startBackgroundJobs() {
   if (started || typeof window === "undefined") return;
   started = true;
+  hydrate();
   setInterval(() => {
     const t = Date.now();
     for (const hold of db.holds) {

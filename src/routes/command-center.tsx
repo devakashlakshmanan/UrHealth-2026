@@ -10,6 +10,16 @@ import { api, useNetworkChannel } from "@/lib/api";
 import type { Hospital, ResourceType } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { StaffRoute } from "@/components/uh/route-guards";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
 
 export const Route = createFileRoute("/command-center")({
   head: () => ({
@@ -20,16 +30,30 @@ export const Route = createFileRoute("/command-center")({
       { property: "og:description", content: "Network-wide bed, ICU and OT status with predictive saturation flags." },
     ],
   }),
-  component: CommandCenter,
+  component: CommandCenterGuarded,
 });
 
 function occupancyPct(h: Hospital) {
   return Math.round(((h.total_beds - h.available_beds) / h.total_beds) * 100);
 }
 
+function CommandCenterGuarded() {
+  return (
+    <StaffRoute allowedRoles={["district_admin"]}>
+      <CommandCenter />
+    </StaffRoute>
+  );
+}
+
 function CommandCenter() {
   useNetworkChannel();
   const [resource, setResource] = useState<ResourceType>("icu");
+
+  // Modal State for Declare Incident
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [incidentType, setIncidentType] = useState<"MCI" | "disaster" | "pandemic">("MCI");
+  const [label, setLabel] = useState("");
+  const [severity, setSeverity] = useState<number>(4);
 
   const network = useQuery({ queryKey: ["network"], queryFn: api.getNetworkStatus });
   const holds = useQuery({ queryKey: ["holds"], queryFn: api.getHolds });
@@ -38,13 +62,17 @@ function CommandCenter() {
   const predictions = useQuery({ queryKey: ["predictions"], queryFn: api.getPredictions });
 
   const declare = useMutation({
-    mutationFn: () =>
-      api.declareIncident({
-        type: "MCI",
-        label: "Mass casualty incident — declared from Command Center",
-        severity_estimate: 4,
-      }),
-    onSuccess: (inc) => toast.warning("MCI declared", { description: `Broadcast to all network hospitals · ${inc.id}` }),
+    mutationFn: (input: { type: "MCI" | "disaster" | "pandemic"; label: string; severity_estimate: number }) =>
+      api.declareIncident(input),
+    onSuccess: (inc) => {
+      toast.warning(`${inc.type} declared`, { description: `Broadcast to all network hospitals · ${inc.id}` });
+      setIsModalOpen(false);
+      setLabel("");
+      network.refetch();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to declare incident");
+    },
   });
 
   const hospitals = network.data?.hospitals ?? [];
@@ -79,11 +107,12 @@ function CommandCenter() {
       title="Orchestration dashboard"
       subtitle="Live network capacity, predicted shortfalls, and active ambulance assignments."
       actions={
-        <Button variant="destructive" onClick={() => declare.mutate()} disabled={declare.isPending}>
-          <AlertTriangle className="mr-2 h-4 w-4" aria-hidden /> Declare MCI
+        <Button variant="destructive" onClick={() => setIsModalOpen(true)}>
+          <AlertTriangle className="mr-2 h-4 w-4" aria-hidden /> Declare Emergency Incident
         </Button>
       }
     >
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Available beds" value={totals.beds} hint={`${hospitals.length} hospitals in network`} />
         <StatCard label="ICU available" value={totals.icu} />
@@ -257,6 +286,98 @@ function CommandCenter() {
           </p>
         ) : null}
       </section>
+
+      {/* Declare Incident Confirmation Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" /> Declare Network Emergency Incident
+            </DialogTitle>
+            <DialogDescription>
+              Declaring an incident broadcasts an active alert across every hospital and ambulance unit in the network.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!label.trim()) {
+                toast.error("Please enter an incident description label");
+                return;
+              }
+              declare.mutate({
+                type: incidentType,
+                label: label.trim(),
+                severity_estimate: severity,
+              });
+            }}
+            className="space-y-4 py-2"
+          >
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Incident Type
+              </label>
+              <select
+                value={incidentType}
+                onChange={(e) => setIncidentType(e.target.value as any)}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="MCI">MCI (Mass Casualty Incident)</option>
+                <option value="disaster">Natural / Industrial Disaster</option>
+                <option value="pandemic">Pandemic / Health Surge</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Incident Description / Label
+              </label>
+              <textarea
+                required
+                rows={3}
+                placeholder="Describe the nature, location, and details of the incident..."
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Estimated Severity Level (1 – 5)
+              </label>
+              <div className="mt-2 flex gap-2">
+                {[1, 2, 3, 4, 5].map((lvl) => (
+                  <button
+                    type="button"
+                    key={lvl}
+                    onClick={() => setSeverity(lvl)}
+                    className={cn(
+                      "flex-1 rounded-md py-2 text-sm font-semibold border transition-all",
+                      severity === lvl
+                        ? "bg-destructive text-destructive-foreground border-destructive"
+                        : "bg-muted text-muted-foreground border-border hover:bg-accent"
+                    )}
+                  >
+                    Level {lvl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <DialogFooter className="mt-6">
+              <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="destructive" disabled={declare.isPending}>
+                {declare.isPending ? "Broadcasting..." : "Confirm & Declare Incident"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
+
 }

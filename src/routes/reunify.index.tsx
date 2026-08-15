@@ -1,23 +1,25 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, Search, ShieldCheck } from "lucide-react";
+import { Activity, Search, ShieldCheck, User, LogOut, Home } from "lucide-react";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PublicAuthRoute } from "@/components/uh/route-guards";
+import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/reunify/")({
   head: () => ({
     meta: [
       { title: "Find a Loved One — UrHealth Re-Unification" },
-      { name: "description", content: "Search by tracking ID or description to find where a person has been taken during an emergency. No login required." },
+      { name: "description", content: "Search by tracking ID or description to find where a person has been taken during an emergency. Identity authenticated via Google." },
       { property: "og:title", content: "Find a Loved One — UrHealth Re-Unification" },
       { property: "og:description", content: "Status-only public search across every hospital in the network." },
     ],
   }),
-  component: Reunify,
+  component: ReunifyGuarded,
 });
 
 const STATUS_TEXT: Record<string, string> = {
@@ -27,12 +29,20 @@ const STATUS_TEXT: Record<string, string> = {
   discharged: "Discharged — contact hospital front desk",
 };
 
+function ReunifyGuarded() {
+  return (
+    <PublicAuthRoute>
+      <Reunify />
+    </PublicAuthRoute>
+  );
+}
+
 function Reunify() {
+  const { user, logout } = useAuth();
   const [tracking, setTracking] = useState("");
   const [filters, setFilters] = useState({ age_range: "any", gender: "any", area: "" });
   const [query, setQuery] = useState<Record<string, string> | null>(null);
 
-  // Public portal polls (15s) instead of using the WebSocket channel.
   const results = useQuery({
     queryKey: ["public-search", query],
     queryFn: () => api.searchPatients(query ?? {}),
@@ -42,21 +52,41 @@ function Reunify() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="command-surface">
-        <div className="mx-auto flex max-w-4xl items-center gap-2 px-4 py-4 sm:px-6">
-          <Link to="/" className="flex items-center gap-2">
-            <Activity className="h-5 w-5" aria-hidden />
-            <span className="font-display text-lg font-semibold">UrHealth</span>
-          </Link>
-          <span className="ml-auto text-xs opacity-85">Public portal · no login needed</span>
+      <header className="command-surface border-b border-border">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <Link to="/" className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-emerald-300" aria-hidden />
+              <span className="font-display text-lg font-semibold text-white">UrHealth</span>
+            </Link>
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-1.5 text-xs font-bold text-emerald-950 shadow-sm hover:bg-emerald-50 hover:text-emerald-900 transition-all border border-emerald-200"
+            >
+              <Home className="h-4 w-4 text-emerald-600 stroke-[2.5]" />
+              <span>Home</span>
+            </Link>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-950/60 px-3 py-1 text-xs font-medium text-emerald-100">
+              <User className="h-3.5 w-3.5 text-emerald-300" />
+              <span>{user?.name || user?.email}</span>
+            </span>
+            <button
+              onClick={logout}
+              className="text-xs font-semibold text-emerald-100 hover:text-white flex items-center gap-1 border border-emerald-400/20 rounded-md px-2.5 py-1 hover:bg-rose-500/20 transition-colors"
+            >
+              <LogOut className="h-3.5 w-3.5" /> Sign Out
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
         <h1 className="text-3xl font-semibold">Find a loved one</h1>
         <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
-          If you were given a tracking ID, enter it below. Otherwise search by description. We show location and status
-          only — for anything else, please contact the hospital front desk.
+          If you were given a tracking ID, enter it below. Otherwise search by description. Every search is logged against your Google identity for security auditing.
         </p>
 
         <div className="panel mt-8 p-5">
@@ -150,7 +180,7 @@ function Reunify() {
                       {r.age_range} · {r.gender} · picked up near {r.pickup_area}
                     </p>
                   </div>
-                  <span className="shrink-0 text-sm text-primary">View</span>
+                  <span className="shrink-0 text-sm text-primary font-semibold">View →</span>
                 </Link>
               ))}
               {!results.isFetching && results.data?.length === 0 ? (
@@ -165,8 +195,7 @@ function Reunify() {
 
         <p className="mt-10 flex items-start gap-2 text-xs text-muted-foreground">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-          Privacy: this portal never displays medical details, injuries, or contact information. Hospital front desks
-          remain the human handoff point.
+          Privacy: this portal never displays medical details, injuries, or contact information. Every search is identity-audited.
         </p>
       </main>
     </div>

@@ -6,6 +6,7 @@ from sqlmodel.pool import StaticPool
 from backend.main import app
 from backend.database import get_session
 from backend.models import Hospital, Incident, AmbulanceUnit
+from backend.auth import create_jwt_token
 
 @pytest.fixture(name="session")
 def session_fixture():
@@ -64,20 +65,30 @@ def client_fixture(session: Session):
     yield client
     app.dependency_overrides.clear()
 
-def test_get_network_status(client: TestClient):
-    response = client.get("/api/network/status")
+@pytest.fixture(name="auth_headers")
+def auth_headers_fixture():
+    token = create_jwt_token({
+        "sub": "admin-1",
+        "email": "admin@urhealth.org",
+        "role": "district_admin",
+        "name": "District Admin"
+    })
+    return {"Authorization": f"Bearer {token}"}
+
+def test_get_network_status(client: TestClient, auth_headers: dict):
+    response = client.get("/api/network/status", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert len(data["hospitals"]) == 2
     assert data["hospitals"][0]["name"] == "City General Hospital"
 
-def test_declare_incident(client: TestClient):
+def test_declare_incident(client: TestClient, auth_headers: dict):
     payload = {
         "type": "MCI",
         "label": "Test Expressway Collision",
         "severity_estimate": 4
     }
-    response = client.post("/api/incidents", json=payload)
+    response = client.post("/api/incidents", json=payload, headers=auth_headers)
     print("DECLARE INCIDENT RESP:", response.status_code, response.json())
     assert response.status_code == 200
     data = response.json()
@@ -85,7 +96,7 @@ def test_declare_incident(client: TestClient):
     assert data["label"] == "Test Expressway Collision"
     assert data["status"] == "active"
 
-def test_create_patient_and_auto_routing(client: TestClient):
+def test_create_patient_and_auto_routing(client: TestClient, auth_headers: dict):
     payload = {
         "name": "Jane Doe",
         "age_range": "18-30",
@@ -96,7 +107,7 @@ def test_create_patient_and_auto_routing(client: TestClient):
         "pickup_location": "Expressway KM 14",
         "pickup_area": "Coastal Expressway"
     }
-    response = client.post("/api/patients", json=payload)
+    response = client.post("/api/patients", json=payload, headers=auth_headers)
     print("CREATE PATIENT RESP:", response.status_code, response.json())
     assert response.status_code == 200
     data = response.json()
@@ -107,7 +118,7 @@ def test_create_patient_and_auto_routing(client: TestClient):
     assert data["assignment"] is not None
     assert data["assignment"]["hold"]["resource_type"] == "icu"
 
-def test_public_patient_search_privacy(client: TestClient):
+def test_public_patient_search_privacy(client: TestClient, auth_headers: dict):
     p_resp = client.post("/api/patients", json={
         "name": "John Secret",
         "age_range": "31-45",
@@ -117,10 +128,10 @@ def test_public_patient_search_privacy(client: TestClient):
         "severity": "red",
         "pickup_location": "Highway 1",
         "pickup_area": "Highway 1"
-    })
+    }, headers=auth_headers)
     tracking_id = p_resp.json()["patient"]["tracking_id"]
 
-    search_resp = client.get(f"/api/patients/search?tracking_id={tracking_id}")
+    search_resp = client.get(f"/api/patients/search?tracking_id={tracking_id}", headers=auth_headers)
     assert search_resp.status_code == 200
     results = search_resp.json()
     assert len(results) == 1
@@ -129,19 +140,20 @@ def test_public_patient_search_privacy(client: TestClient):
     assert "John Secret" not in str(r)
     assert "Internal bleeding" not in str(r)
 
-def test_reject_and_reroute(client: TestClient):
+def test_reject_and_reroute(client: TestClient, auth_headers: dict):
     p_resp = client.post("/api/patients", json={
         "age_range": "18-30",
         "gender": "male",
         "severity": "red",
         "pickup_location": "Expressway",
         "pickup_area": "Expressway"
-    })
+    }, headers=auth_headers)
     hold_id = p_resp.json()["assignment"]["hold"]["id"]
     assigned_h1 = p_resp.json()["assignment"]["hospital"]["id"]
 
-    rej_resp = client.post(f"/api/hospitals/{assigned_h1}/reject?hold_id={hold_id}")
+    rej_resp = client.post(f"/api/hospitals/{assigned_h1}/reject?hold_id={hold_id}", headers=auth_headers)
     assert rej_resp.status_code == 200
     new_assignment = rej_resp.json()
     assert new_assignment is not None
     assert new_assignment["hospital"]["id"] != assigned_h1
+

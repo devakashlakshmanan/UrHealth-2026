@@ -7,6 +7,7 @@ import { api, useNetworkChannel } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { StaffRoute } from "@/components/uh/route-guards";
 
 export const Route = createFileRoute("/hospital/$hospitalId")({
   head: () => ({
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/hospital/$hospitalId")({
       { property: "og:description", content: "Confirm arrivals, reject and auto-reroute, and keep bed counts current." },
     ],
   }),
-  component: HospitalConsole,
+  component: HospitalConsoleGuarded,
 });
 
 const FIELDS = [
@@ -25,6 +26,15 @@ const FIELDS = [
   { key: "icu_available", label: "ICU available" },
   { key: "ot_available", label: "OT slots free" },
 ] as const;
+
+function HospitalConsoleGuarded() {
+  const { hospitalId } = Route.useParams();
+  return (
+    <StaffRoute allowedRoles={["hospital_coordinator", "district_admin"]} requiredHospitalId={hospitalId}>
+      <HospitalConsole />
+    </StaffRoute>
+  );
+}
 
 function HospitalConsole() {
   const { hospitalId } = Route.useParams();

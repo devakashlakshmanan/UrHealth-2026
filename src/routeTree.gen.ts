@@ -10,16 +10,24 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuditLogsRouteImport } from './routes/audit-logs'
 import { Route as CommandCenterRouteImport } from './routes/command-center'
 import { Route as AmbulanceUnitIdRouteImport } from './routes/ambulance.$unitId'
 import { Route as HospitalHospitalIdRouteImport } from './routes/hospital.$hospitalId'
 import { Route as ReunifyIndexRouteImport } from './routes/reunify.index'
 import { Route as ReunifyTrackingIdRouteImport } from './routes/reunify.$trackingId'
+import { Route as StaffLoginRouteImport } from './routes/staff.login'
+import { Route as StaffManageRouteImport } from './routes/staff.manage'
 import { Route as TriageNewRouteImport } from './routes/triage.new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuditLogsRoute = AuditLogsRouteImport.update({
+  id: '/audit-logs',
+  path: '/audit-logs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CommandCenterRoute = CommandCenterRouteImport.update({
@@ -47,6 +55,16 @@ const ReunifyTrackingIdRoute = ReunifyTrackingIdRouteImport.update({
   path: '/reunify/$trackingId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StaffLoginRoute = StaffLoginRouteImport.update({
+  id: '/staff/login',
+  path: '/staff/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StaffManageRoute = StaffManageRouteImport.update({
+  id: '/staff/manage',
+  path: '/staff/manage',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TriageNewRoute = TriageNewRouteImport.update({
   id: '/triage/new',
   path: '/triage/new',
@@ -55,29 +73,38 @@ const TriageNewRoute = TriageNewRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/audit-logs': typeof AuditLogsRoute
   '/command-center': typeof CommandCenterRoute
   '/ambulance/$unitId': typeof AmbulanceUnitIdRoute
   '/hospital/$hospitalId': typeof HospitalHospitalIdRoute
   '/reunify/$trackingId': typeof ReunifyTrackingIdRoute
+  '/staff/login': typeof StaffLoginRoute
+  '/staff/manage': typeof StaffManageRoute
   '/triage/new': typeof TriageNewRoute
   '/reunify/': typeof ReunifyIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/audit-logs': typeof AuditLogsRoute
   '/command-center': typeof CommandCenterRoute
   '/ambulance/$unitId': typeof AmbulanceUnitIdRoute
   '/hospital/$hospitalId': typeof HospitalHospitalIdRoute
   '/reunify/$trackingId': typeof ReunifyTrackingIdRoute
+  '/staff/login': typeof StaffLoginRoute
+  '/staff/manage': typeof StaffManageRoute
   '/triage/new': typeof TriageNewRoute
   '/reunify': typeof ReunifyIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/audit-logs': typeof AuditLogsRoute
   '/command-center': typeof CommandCenterRoute
   '/ambulance/$unitId': typeof AmbulanceUnitIdRoute
   '/hospital/$hospitalId': typeof HospitalHospitalIdRoute
   '/reunify/$trackingId': typeof ReunifyTrackingIdRoute
+  '/staff/login': typeof StaffLoginRoute
+  '/staff/manage': typeof StaffManageRoute
   '/triage/new': typeof TriageNewRoute
   '/reunify/': typeof ReunifyIndexRoute
 }
@@ -85,38 +112,50 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/audit-logs'
     | '/command-center'
     | '/ambulance/$unitId'
     | '/hospital/$hospitalId'
     | '/reunify/$trackingId'
+    | '/staff/login'
+    | '/staff/manage'
     | '/triage/new'
     | '/reunify/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/audit-logs'
     | '/command-center'
     | '/ambulance/$unitId'
     | '/hospital/$hospitalId'
     | '/reunify/$trackingId'
+    | '/staff/login'
+    | '/staff/manage'
     | '/triage/new'
     | '/reunify'
   id:
     | '__root__'
     | '/'
+    | '/audit-logs'
     | '/command-center'
     | '/ambulance/$unitId'
     | '/hospital/$hospitalId'
     | '/reunify/$trackingId'
+    | '/staff/login'
+    | '/staff/manage'
     | '/triage/new'
     | '/reunify/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuditLogsRoute: typeof AuditLogsRoute
   CommandCenterRoute: typeof CommandCenterRoute
   AmbulanceUnitIdRoute: typeof AmbulanceUnitIdRoute
   HospitalHospitalIdRoute: typeof HospitalHospitalIdRoute
   ReunifyTrackingIdRoute: typeof ReunifyTrackingIdRoute
+  StaffLoginRoute: typeof StaffLoginRoute
+  StaffManageRoute: typeof StaffManageRoute
   TriageNewRoute: typeof TriageNewRoute
   ReunifyIndexRoute: typeof ReunifyIndexRoute
 }
@@ -128,6 +167,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/audit-logs': {
+      id: '/audit-logs'
+      path: '/audit-logs'
+      fullPath: '/audit-logs'
+      preLoaderRoute: typeof AuditLogsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/command-center': {
@@ -165,6 +211,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReunifyTrackingIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/staff/login': {
+      id: '/staff/login'
+      path: '/staff/login'
+      fullPath: '/staff/login'
+      preLoaderRoute: typeof StaffLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/staff/manage': {
+      id: '/staff/manage'
+      path: '/staff/manage'
+      fullPath: '/staff/manage'
+      preLoaderRoute: typeof StaffManageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/triage/new': {
       id: '/triage/new'
       path: '/triage/new'
@@ -177,10 +237,13 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuditLogsRoute: AuditLogsRoute,
   CommandCenterRoute: CommandCenterRoute,
   AmbulanceUnitIdRoute: AmbulanceUnitIdRoute,
   HospitalHospitalIdRoute: HospitalHospitalIdRoute,
   ReunifyTrackingIdRoute: ReunifyTrackingIdRoute,
+  StaffLoginRoute: StaffLoginRoute,
+  StaffManageRoute: StaffManageRoute,
   TriageNewRoute: TriageNewRoute,
   ReunifyIndexRoute: ReunifyIndexRoute,
 }

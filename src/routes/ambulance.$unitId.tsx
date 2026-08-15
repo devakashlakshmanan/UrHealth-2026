@@ -6,6 +6,7 @@ import { AppShell } from "@/components/uh/app-shell";
 import { Countdown, HoldBadge, PatientStatusBadge, SeverityBadge } from "@/components/uh/badges";
 import { api, useNetworkChannel } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { StaffRoute } from "@/components/uh/route-guards";
 
 export const Route = createFileRoute("/ambulance/$unitId")({
   head: () => ({
@@ -16,8 +17,16 @@ export const Route = createFileRoute("/ambulance/$unitId")({
       { property: "og:description", content: "Mobile-first crew view with auto re-assignment when a hold expires." },
     ],
   }),
-  component: AmbulanceView,
+  component: AmbulanceViewGuarded,
 });
+
+function AmbulanceViewGuarded() {
+  return (
+    <StaffRoute allowedRoles={["ambulance_crew", "district_admin"]}>
+      <AmbulanceView />
+    </StaffRoute>
+  );
+}
 
 function AmbulanceView() {
   const { unitId } = Route.useParams();

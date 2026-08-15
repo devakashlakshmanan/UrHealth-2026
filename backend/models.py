@@ -76,6 +76,39 @@ class Prediction(SQLModel, table=True):
     generated_at: str
     series: List[Dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
 
+# --- Auth & Audit Log Models ---
+
+class PublicUser(SQLModel, table=True):
+    __tablename__ = "public_users"
+    id: str = Field(primary_key=True)
+    google_sub: str = Field(index=True, unique=True)
+    email: str
+    name: str
+    picture: Optional[str] = None
+    created_at: str
+
+class StaffAccount(SQLModel, table=True):
+    __tablename__ = "staff_accounts"
+    id: str = Field(primary_key=True)
+    email: str = Field(index=True, unique=True)
+    username: str = Field(index=True, unique=True)
+    password_hash: str
+    role: str  # "district_admin", "hospital_coordinator", "triage_staff", "ambulance_crew"
+    hospital_id: Optional[str] = Field(default=None, foreign_key="hospitals.id")
+    unit_id: Optional[str] = Field(default=None)
+    created_by_admin_id: Optional[str] = None
+    created_at: str
+
+class ReunificationSearchLog(SQLModel, table=True):
+    __tablename__ = "reunification_search_logs"
+    id: str = Field(primary_key=True)
+    public_user_id: Optional[str] = Field(default=None, foreign_key="public_users.id")
+    searched_at: str
+    query_type: str  # "tracking_id" or "descriptive_filters"
+    query_params: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    tracking_id_result: Optional[str] = None
+    ip_address: str = "127.0.0.1"
+
 # --- DTOs / Request & Response Schemas ---
 
 class IncidentCreate(SQLModel):
@@ -108,3 +141,35 @@ class PublicPatientView(SQLModel):
     hospital_name: Optional[str] = None
     hospital_address: Optional[str] = None
     updated_at: str
+
+class GoogleAuthRequest(SQLModel):
+    id_token: str
+
+class StaffAccountCreate(SQLModel):
+    email: str
+    username: str
+    password: str
+    role: str
+    hospital_id: Optional[str] = None
+    unit_id: Optional[str] = None
+
+class StaffAccountResponse(SQLModel):
+    id: str
+    email: str
+    username: str
+    role: str
+    hospital_id: Optional[str] = None
+    unit_id: Optional[str] = None
+    created_by_admin_id: Optional[str] = None
+    created_at: str
+
+class StaffLoginRequest(SQLModel):
+    username_or_email: str
+    password: str
+
+class TokenResponse(SQLModel):
+    access_token: str
+    token_type: str = "bearer"
+    role: str
+    user: Dict[str, Any]
+

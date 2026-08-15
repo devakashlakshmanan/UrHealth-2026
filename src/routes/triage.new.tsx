@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { StaffRoute } from "@/components/uh/route-guards";
 
 export const Route = createFileRoute("/triage/new")({
   head: () => ({
@@ -23,7 +24,7 @@ export const Route = createFileRoute("/triage/new")({
       { property: "og:description", content: "Scene-side patient logging with instant tracking ID and auto-routing." },
     ],
   }),
-  component: TriageIntake,
+  component: TriageIntakeGuarded,
 });
 
 const SEVERITIES: { value: Severity; label: string; help: string }[] = [
@@ -34,6 +35,14 @@ const SEVERITIES: { value: Severity; label: string; help: string }[] = [
 ];
 
 const AGE_RANGES = ["0-12", "13-17", "18-30", "31-45", "46-60", "60+"];
+
+function TriageIntakeGuarded() {
+  return (
+    <StaffRoute allowedRoles={["triage_staff", "district_admin"]}>
+      <TriageIntake />
+    </StaffRoute>
+  );
+}
 
 function TriageIntake() {
   useNetworkChannel();

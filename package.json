@@ -8,7 +8,9 @@
     "backend": "python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload",
 
     "start": "python start_servers.py",
+    "start:node": "node .output/server/index.mjs",
     "build": "vite build",
+    "build:node": "cross-env NITRO_PRESET=node-server vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",

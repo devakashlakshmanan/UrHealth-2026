@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { getApiBase } from "./api";
 
 export interface UserSession {
   id: string;
@@ -26,7 +27,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const TOKEN_KEY = "urhealth_auth_token";
 const USER_KEY = "urhealth_auth_user";
-const API_BASE = (import.meta.env["VITE_API_URL"] as string) || "http://localhost:8000";
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setToken] = useState<string | null>(() => {
@@ -70,7 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginGoogle = async (idToken: string): Promise<UserSession> => {
     try {
-      const res = await fetch(`${API_BASE}/api/auth/google`, {
+      const res = await fetch(`${getApiBase()}/api/auth/google`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id_token: idToken }),
@@ -94,7 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginStaff = async (usernameOrEmail: string, password: string): Promise<UserSession> => {
     try {
-      const res = await fetch(`${API_BASE}/api/auth/staff/login`, {
+      const res = await fetch(`${getApiBase()}/api/auth/staff/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username_or_email: usernameOrEmail, password }),

@@ -3,8 +3,47 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { Hospital, Incident, Severity, Patient, BedHold, AmbulanceUnit, Prediction, PatientVitals, BedSlot } from "./types";
 import { store, subscribeNetwork, type NetworkEvent, startBackgroundJobs } from "./mock-backend";
 
-const API_BASE = (import.meta.env["VITE_API_URL"] as string) || "http://localhost:8000";
-const WS_BASE = (import.meta.env["VITE_WS_URL"] as string) || "ws://localhost:8000";
+function normalizeUrl(url: string): string {
+  let clean = url.trim().replace(/\/+$/, "");
+  if (!clean.startsWith("http://") && !clean.startsWith("https://") && !clean.startsWith("ws://") && !clean.startsWith("wss://")) {
+    clean = `https://${clean}`;
+  }
+  return clean;
+}
+
+export function getApiBase(): string {
+  if (typeof window !== "undefined") {
+    const override = localStorage.getItem("urhealth_api_url");
+    if (override) return normalizeUrl(override);
+  }
+  const envUrl = (import.meta.env["VITE_API_URL"] as string)?.trim();
+  if (envUrl) {
+    return normalizeUrl(envUrl);
+  }
+  return "http://localhost:8000";
+}
+
+export function getWsBase(): string {
+  if (typeof window !== "undefined") {
+    const override = localStorage.getItem("urhealth_ws_url");
+    if (override) {
+      const norm = normalizeUrl(override);
+      return norm.startsWith("https://") ? norm.replace(/^https:\/\//, "wss://") : norm.replace(/^http:\/\//, "ws://");
+    }
+  }
+  const envWs = (import.meta.env["VITE_WS_URL"] as string)?.trim();
+  if (envWs) {
+    const norm = normalizeUrl(envWs);
+    return norm.startsWith("https://") ? norm.replace(/^https:\/\//, "wss://") : norm.replace(/^http:\/\//, "ws://");
+  }
+  const apiBase = getApiBase();
+  if (apiBase.startsWith("https://")) {
+    return apiBase.replace(/^https:\/\//, "wss://");
+  } else if (apiBase.startsWith("http://")) {
+    return apiBase.replace(/^http:\/\//, "ws://");
+  }
+  return "ws://localhost:8000";
+}
 
 // Ensure background hold expiry / prediction scheduler runs in client
 if (typeof window !== "undefined") {
@@ -28,7 +67,7 @@ async function http<T>(path: string, options?: RequestInit, fallbackFn?: () => T
       ...getAuthHeader(),
       ...options?.headers,
     };
-    const res = await fetch(`${API_BASE}${path}`, {
+    const res = await fetch(`${getApiBase()}${path}`, {
       ...options,
       headers,
     });
@@ -345,7 +384,7 @@ export function useNetworkChannel(onEvent?: (e: NetworkEvent) => void) {
       if (typeof window !== "undefined" && window.localStorage) {
         const token = localStorage.getItem("urhealth_auth_token");
         if (token) {
-          socket = new WebSocket(`${WS_BASE}/ws/network?token=${encodeURIComponent(token)}`);
+          socket = new WebSocket(`${getWsBase()}/ws/network?token=${encodeURIComponent(token)}`);
           socket.onopen = () => {
             if (!isCancelled) setIsConnected(true);
           };

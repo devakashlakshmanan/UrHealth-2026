@@ -1,0 +1,42 @@
+services:
+  # -------------------------------------------------------------
+  # 1. UrHealth FastAPI Backend Web Service
+  # -------------------------------------------------------------
+  - type: web
+    name: urhealth-backend
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: ALLOWED_ORIGINS
+        value: "*"
+      - key: DATABASE_URL
+        value: sqlite:///./urhealth.db
+      - key: JWT_SECRET_KEY
+        generateValue: true
+
+  # -------------------------------------------------------------
+  # 2. UrHealth TanStack / React Frontend Web Service
+  # -------------------------------------------------------------
+  - type: web
+    name: urhealth-frontend
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: npm install && NITRO_PRESET=node-server npm run build
+    startCommand: node .output/server/index.mjs
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: NITRO_PRESET
+        value: node-server
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: urhealth-backend
+          property: host

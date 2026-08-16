@@ -4,15 +4,17 @@ This repository is fully configured for deployment on [Render](https://render.co
 
 ---
 
-## 🔧 Fix for `urhealth-frontend` Deployment Issue on Render
+## 🔧 Fix for `Cannot find native binding` Error on Render
 
-If `urhealth-frontend` shows **`Failed deploy`** in your Render dashboard:
+Render builds in a Linux container environment. When `package-lock.json` is generated on Windows, npm omits Linux native bindings (`@rolldown/binding-linux-x64-gnu`), throwing:
+`Error: Cannot find native binding. npm has a bug related to optional dependencies`
 
-### Method A: Clear Cache & Re-deploy (Quickest Fix)
-1. Go to your Render Dashboard → Click **`urhealth-frontend`**.
-2. Click **Manual Deploy** in the top-right corner.
-3. Select **Clear build cache & deploy**.
-4. Render will pull the updated repository configurations and deploy cleanly!
+This issue has been resolved directly in `render.yaml` and `package.json` by ensuring Linux native binaries are installed during deployment.
+
+### Method A: Automatic Deployment (Recommended)
+1. Commit and push the updated files to GitHub (`git push origin main`).
+2. Render will automatically detect the commit and deploy cleanly!
+3. If doing a manual re-deploy in Render Dashboard, click **Manual Deploy** → **Clear build cache & deploy**.
 
 ---
 
@@ -22,7 +24,7 @@ If configuring `urhealth-frontend` manually as a **Web Service**:
 
 - **Name**: `urhealth-frontend`
 - **Runtime**: `Node`
-- **Build Command**: `npm install && NITRO_PRESET=node-server npm run build`
+- **Build Command**: `npm install && npm i --no-save @rolldown/binding-linux-x64-gnu@1.2.3 @rolldown/binding-linux-x64-musl@1.2.3 && NITRO_PRESET=node-server npm run build`
 - **Start Command**: `node .output/server/index.mjs`
 - **Environment Variables**:
   - `NODE_VERSION`: `20.18.0`
@@ -37,7 +39,7 @@ If configuring `urhealth-frontend` manually as a **Web Service**:
 If configuring `urhealth-frontend` as a Render **Static Site**:
 
 - **Name**: `urhealth-frontend`
-- **Build Command**: `npm install && npm run build`
+- **Build Command**: `npm install && npm i --no-save @rolldown/binding-linux-x64-gnu@1.2.3 && npm run build`
 - **Publish Directory**: `.output/public`
 - **Rewrite Rules**: Add rule `/*` → `/index.html` (Rewrite)
 - **Environment Variables**:

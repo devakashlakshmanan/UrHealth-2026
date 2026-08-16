@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Activity, Ambulance, Building2, ClipboardPlus, Radar, Search, ShieldCheck, UserCheck } from "lucide-react";
+import { Activity, Ambulance, Building2, ClipboardPlus, HeartPulse, Radar, Search, ShieldCheck, UserCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/")({
@@ -94,7 +94,7 @@ function Home() {
             </Link>
           </div>
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
             <Link to="/command-center" className="panel group p-5 transition-shadow hover:shadow-[var(--shadow-lift)]">
               <Radar className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" aria-hidden />
               <p className="mt-4 text-xs uppercase tracking-wide text-muted-foreground">District Admin</p>
@@ -115,6 +115,18 @@ function Home() {
               <h3 className="mt-1 text-base font-semibold">Hospital Ops Console</h3>
               <p className="mt-2 text-xs text-muted-foreground">Incoming assignments, confirm or reject holds, edit local resource counts.</p>
             </Link>
+
+            <a
+              href="https://urhealth-2025.onrender.com/login"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="panel group p-5 transition-shadow hover:shadow-[var(--shadow-lift)] block cursor-pointer"
+            >
+              <HeartPulse className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" aria-hidden />
+              <p className="mt-4 text-xs uppercase tracking-wide text-muted-foreground">Hospital Management</p>
+              <h3 className="mt-1 text-base font-semibold">Advanced Emergency Console</h3>
+              <p className="mt-2 text-xs text-muted-foreground">Manage ICU beds, emergency patients, resources, AI predictions, and critical alerts in one unified console.</p>
+            </a>
 
             <Link to="/ambulance/$unitId" params={{ unitId: "u1" }} className="panel group p-5 transition-shadow hover:shadow-[var(--shadow-lift)]">
               <Ambulance className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" aria-hidden />

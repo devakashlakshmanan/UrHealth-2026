@@ -28,7 +28,7 @@ services:
     runtime: node
     region: oregon
     plan: free
-    buildCommand: npm install && npm i --no-save @rolldown/binding-linux-x64-gnu@1.2.3 @rolldown/binding-linux-x64-musl@1.2.3 && NITRO_PRESET=node-server npm run build
+    buildCommand: npm install && NITRO_PRESET=node-server npm run build
     startCommand: node .output/server/index.mjs
     envVars:
       - key: NODE_VERSION

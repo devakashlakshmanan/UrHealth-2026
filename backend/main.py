@@ -428,7 +428,8 @@ def search_patients_public(
                 pickup_area=p.pickup_area,
                 hospital_name=h.name if h else None,
                 hospital_address=h.address if h else None,
-                updated_at=p.created_at
+                updated_at=p.created_at,
+                name=p.name if (p.name and p.name.strip()) else "Unknown"
             )
         )
 
@@ -488,7 +489,8 @@ def lookup_patient_public(
         pickup_area=patient.pickup_area,
         hospital_name=h.name if h else None,
         hospital_address=h.address if h else None,
-        updated_at=patient.created_at
+        updated_at=patient.created_at,
+        name=patient.name if (patient.name and patient.name.strip()) else "Unknown"
     )
 
 # --- Staff Operational Endpoints ---

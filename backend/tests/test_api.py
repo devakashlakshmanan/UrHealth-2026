@@ -137,7 +137,7 @@ def test_public_patient_search_privacy(client: TestClient, auth_headers: dict):
     assert len(results) == 1
     r = results[0]
     assert r["tracking_id"] == tracking_id
-    assert "John Secret" not in str(r)
+    assert r["name"] == "John Secret"
     assert "Internal bleeding" not in str(r)
 
 def test_reject_and_reroute(client: TestClient, auth_headers: dict):

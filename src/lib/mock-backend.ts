@@ -792,6 +792,7 @@ export const store = {
         hospital_name: db.hospitals.find((h) => h.id === p.assigned_hospital_id)?.name ?? null,
         hospital_address: db.hospitals.find((h) => h.id === p.assigned_hospital_id)?.address ?? null,
         updated_at: p.created_at,
+        name: p.name?.trim() ? p.name.trim() : "Unknown",
       }));
   },
 };

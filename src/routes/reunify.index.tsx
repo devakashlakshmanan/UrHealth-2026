@@ -171,7 +171,9 @@ function Reunify() {
                   className="panel grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 p-4 transition-shadow hover:shadow-[var(--shadow-lift)]"
                 >
                   <div className="min-w-0">
-                    <p className="font-mono text-sm font-semibold text-primary">{r.tracking_id}</p>
+                    <p className="text-sm font-semibold text-primary">
+                      {r.name || "Unknown"} <span className="font-mono text-xs text-muted-foreground font-normal ml-1">({r.tracking_id})</span>
+                    </p>
                     <p className="mt-1 truncate text-sm">
                       {STATUS_TEXT[r.status]}
                       {r.hospital_name ? ` — ${r.hospital_name}` : ""}

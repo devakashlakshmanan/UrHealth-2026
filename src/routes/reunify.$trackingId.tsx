@@ -68,8 +68,23 @@ function TrackingStatus() {
         </Link>
 
         <div className="panel mt-6 p-6">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Tracking ID</p>
-          <p className="mt-1 font-mono text-3xl font-bold tracking-[0.16em] text-primary">{trackingId.toUpperCase()}</p>
+          {r ? (
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-5 mb-5">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Missing Person</p>
+                <p className="mt-1 text-3xl font-bold text-primary">{r.name || "Unknown"}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold sm:text-right">Tracking ID</p>
+                <p className="mt-1 font-mono text-xl font-bold tracking-[0.10em] text-muted-foreground sm:text-right">{trackingId.toUpperCase()}</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Tracking ID</p>
+              <p className="mt-1 font-mono text-3xl font-bold tracking-[0.16em] text-primary">{trackingId.toUpperCase()}</p>
+            </>
+          )}
 
           {q.isLoading ? <p className="mt-6 text-sm text-muted-foreground">Looking up…</p> : null}
 

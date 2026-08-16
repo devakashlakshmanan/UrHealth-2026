@@ -6,8 +6,12 @@ from backend.auth import create_jwt_token, hash_password
 
 client = TestClient(app)
 
+from backend.database import init_db, engine
+from sqlmodel import SQLModel
+
 @pytest.fixture(autouse=True)
 def setup_db():
+    SQLModel.metadata.drop_all(engine)
     init_db()
 
 def test_google_auth_rejects_fabricated_token():

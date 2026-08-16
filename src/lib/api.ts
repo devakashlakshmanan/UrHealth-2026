@@ -201,6 +201,7 @@ export const api = {
         hospital_name: string | null;
         hospital_address: string | null;
         updated_at: string;
+        name: string | null;
       }[]
     >(`/api/patients/search${queryString}`, undefined, () => store.search(q));
   },
@@ -215,6 +216,7 @@ export const api = {
       hospital_name: string | null;
       hospital_address: string | null;
       updated_at: string;
+      name: string | null;
     } | null>(`/api/patients/${encodeURIComponent(trackingId)}`, undefined, () => {
       const p = store.patientByTracking(trackingId);
       if (!p) return null;
@@ -227,6 +229,7 @@ export const api = {
         hospital_name: store.hospitals().find((h) => h.id === p.assigned_hospital_id)?.name ?? null,
         hospital_address: store.hospitals().find((h) => h.id === p.assigned_hospital_id)?.address ?? null,
         updated_at: p.created_at,
+        name: p.name?.trim() ? p.name.trim() : "Unknown",
       };
     }),
 

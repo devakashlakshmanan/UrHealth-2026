@@ -141,6 +141,7 @@ class PublicPatientView(SQLModel):
     hospital_name: Optional[str] = None
     hospital_address: Optional[str] = None
     updated_at: str
+    name: Optional[str] = None
 
 class GoogleAuthRequest(SQLModel):
     id_token: str

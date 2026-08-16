@@ -117,7 +117,7 @@ function Home() {
             </Link>
 
             <a
-              href="https://urhealth-2025.onrender.com/login"
+              href="https://urhealth-2025.onrender.com/"
               target="_blank"
               rel="noopener noreferrer"
               className="panel group p-5 transition-shadow hover:shadow-[var(--shadow-lift)] block cursor-pointer"

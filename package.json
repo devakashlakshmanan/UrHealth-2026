@@ -8,6 +8,7 @@
     "backend": "python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload",
     "start": "node .output/server/index.mjs",
     "start:local": "python start_servers.py",
+    "prebuild": "node -e \"const pkg = process.platform === 'win32' ? '@rolldown/binding-win32-x64-msvc@1.2.3' : '@rolldown/binding-linux-x64-gnu@1.2.3'; require('child_process').execSync('npm i --no-save ' + pkg, {stdio: 'inherit'})\"",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
@@ -87,8 +88,5 @@
     "globals": "^15.15.0",
     "prettier": "^3.7.3",
     "typescript-eslint": "^8.56.1"
-  },
-  "optionalDependencies": {
-    "@rolldown/binding-linux-x64-gnu": "1.2.3"
   }
 }

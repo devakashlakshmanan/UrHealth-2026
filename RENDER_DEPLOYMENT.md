@@ -1,82 +1,65 @@
 # 🚀 Deploying UrHealth to Render
 
-This repository is fully configured for deployment on [Render](https://render.com) using the included `render.yaml` Blueprint or manual Web Service creation.
+This repository is fully configured for deployment on [Render](https://render.com) using the included `render.yaml` Blueprint or manual service creation.
 
 ---
 
-## ⚡ Option 1: Automatic Blueprint Deployment (Recommended)
+## 🔧 Fix for `urhealth-frontend` Deployment Issue on Render
 
-Render Blueprints allow you to deploy the complete full-stack architecture (FastAPI backend + TanStack React frontend) with a single click.
+If `urhealth-frontend` shows **`Failed deploy`** in your Render dashboard:
 
-1. **Log in to Render**: Go to [dashboard.render.com](https://dashboard.render.com/).
-2. Click **New +** in the top navigation and select **Blueprint**.
-3. Connect your GitHub repository:
-   ```text
-   https://github.com/devakashlakshmanan/UrHealth-2026.git
-   ```
-4. Render will automatically detect [`render.yaml`](file:///c:/Users/HP/Downloads/urhealth-connect-main/urhealth-connect-main/render.yaml) and configure two services:
-   - **`urhealth-backend`**: Python FastAPI Web Service with WebSocket and SQLite database.
-   - **`urhealth-frontend`**: Node / TanStack SSR Web Service connected to the backend.
-5. Click **Apply Blueprint**.
-6. Render will automatically build and deploy both services!
+### Method A: Clear Cache & Re-deploy (Quickest Fix)
+1. Go to your Render Dashboard → Click **`urhealth-frontend`**.
+2. Click **Manual Deploy** in the top-right corner.
+3. Select **Clear build cache & deploy**.
+4. Render will pull the updated repository configurations and deploy cleanly!
 
 ---
 
-## 🛠 Option 2: Manual Web Service Setup
+## 🛠 Web Service Settings (Node SSR)
 
-If you prefer setting up the services manually in Render:
+If configuring `urhealth-frontend` manually as a **Web Service**:
 
-### Step 1: Deploy the Backend Service
-1. In Render Dashboard, click **New +** → **Web Service**.
-2. Select repository: `https://github.com/devakashlakshmanan/UrHealth-2026.git`.
-3. Configure the settings:
-   - **Name**: `urhealth-backend`
-   - **Runtime**: `Python 3`
-   - **Branch**: `main`
-   - **Build Command**: `pip install -r backend/requirements.txt`
-   - **Start Command**: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
-   - **Health Check Path**: `/health`
-4. Add Environment Variables:
-   - `PYTHON_VERSION`: `3.11.9`
-   - `ALLOWED_ORIGINS`: `*`
-   - `JWT_SECRET_KEY`: *(Click Generate or enter a secure random string)*
-5. Click **Create Web Service**.
-6. Copy your deployed Backend URL (e.g. `https://urhealth-backend.onrender.com`).
+- **Name**: `urhealth-frontend`
+- **Runtime**: `Node`
+- **Build Command**: `npm install && NITRO_PRESET=node-server npm run build`
+- **Start Command**: `node .output/server/index.mjs`
+- **Environment Variables**:
+  - `NODE_VERSION`: `20.18.0`
+  - `NITRO_PRESET`: `node-server`
+  - `HOST`: `0.0.0.0`
+  - `VITE_API_URL`: `https://urhealth-backend.onrender.com` (replace with your actual backend service URL)
 
 ---
 
-### Step 2: Deploy the Frontend Service
-1. In Render Dashboard, click **New +** → **Web Service**.
-2. Select repository: `https://github.com/devakashlakshmanan/UrHealth-2026.git`.
-3. Configure the settings:
-   - **Name**: `urhealth-frontend`
-   - **Runtime**: `Node`
-   - **Branch**: `main`
-   - **Build Command**: `npm install && NITRO_PRESET=node-server npm run build`
-   - **Start Command**: `node .output/server/index.mjs`
-4. Add Environment Variables:
-   - `NODE_VERSION`: `20.18.0`
-   - `NITRO_PRESET`: `node-server`
-   - `VITE_API_URL`: *(Paste your deployed Backend URL, e.g. `https://urhealth-backend.onrender.com`)*
-5. Click **Create Web Service**.
+## 🌐 Static Site Settings (Alternative Static Frontend)
+
+If configuring `urhealth-frontend` as a Render **Static Site**:
+
+- **Name**: `urhealth-frontend`
+- **Build Command**: `npm install && npm run build`
+- **Publish Directory**: `.output/public`
+- **Rewrite Rules**: Add rule `/*` → `/index.html` (Rewrite)
+- **Environment Variables**:
+  - `VITE_API_URL`: `https://urhealth-backend.onrender.com`
 
 ---
 
 ## 🔑 Default Staff Credentials for Verification
 
-Once deployed, you can access the system using the pre-seeded staff roles:
+Once deployed, access operational consoles using pre-seeded roles:
 
 | Role | Username | Password | Access Level |
 | :--- | :--- | :--- | :--- |
-| **District Admin** | `admin` | `admin123` | Full network command center, audit logs, staff management |
-| **Hospital Coordinator** | `coord_h1` | `coord123` | City General Hospital dashboard, bed management |
-| **Triage Staff** | `triage_staff` | `triage123` | Emergency patient intake & dynamic AI auto-routing |
-| **Ambulance Crew** | `crew_u1` | `crew123` | Unit AMB-114 live telemetry & vitals stream |
+| **District Admin** | `admin` | `admin123` | Full network command center, audit logs |
+| **Hospital Coordinator** | `coord_h1` | `coord123` | City General Hospital dashboard |
+| **Triage Staff** | `triage_staff` | `triage123` | Emergency patient intake & AI auto-routing |
+| **Ambulance Crew** | `crew_u1` | `crew123` | Unit AMB-114 live telemetry & field view |
 
 ---
 
-## 🩺 Verifying Deployment Health
+## 🩺 Health Check Verification
 
-- **Backend Health Check**: `https://<your-backend>.onrender.com/health` (Returns `{"status": "healthy"}`)
-- **Swagger Interactive API Docs**: `https://<your-backend>.onrender.com/docs`
-- **Frontend App**: `https://<your-frontend>.onrender.com`
+- **Backend Health Check**: `https://<your-backend-url>.onrender.com/health` (Returns `{"status": "healthy"}`)
+- **Backend API Docs**: `https://<your-backend-url>.onrender.com/docs`
+- **Frontend App**: `https://<your-frontend-url>.onrender.com`

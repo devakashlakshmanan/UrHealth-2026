@@ -21,15 +21,15 @@ services:
         generateValue: true
 
   # -------------------------------------------------------------
-  # 2. UrHealth TanStack / React Frontend Web Service
+  # 2. UrHealth TanStack / React Frontend Web Service (Node SSR)
   # -------------------------------------------------------------
   - type: web
     name: urhealth-frontend
     runtime: node
     region: oregon
     plan: free
-    buildCommand: npm install --include=optional && npm run build
-    startCommand: npm start
+    buildCommand: npm install && NITRO_PRESET=node-server npm run build
+    startCommand: node .output/server/index.mjs
     envVars:
       - key: NODE_VERSION
         value: 20.18.0
